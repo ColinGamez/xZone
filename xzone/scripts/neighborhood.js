@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const http = require('http');
 const net = require('net');
 const os = require('os');
 const path = require('path');
@@ -22,6 +23,7 @@ Usage:
   npm run xbox:dir -- xY:\\ [--target 192.168.2.83]
   npm run xbox:capture -- [output.bmp] [--target 192.168.2.83]
   npm run xbox:proxy-plan -- [--target 192.168.2.83]
+  npm run xbox:preflight -- [--target 192.168.2.83]
 
 Environment:
   XBOX_TARGET          Optional Neighborhood target IP/name.
@@ -177,6 +179,171 @@ function checkPort(host, port, timeoutMs = 1500) {
   });
 }
 
+function httpRequest(baseUrl, requestPath, options = {}) {
+  const url = new URL(baseUrl);
+
+  return new Promise((resolve, reject) => {
+    const req = http.request({
+      host: url.hostname,
+      port: url.port || 80,
+      method: options.method || 'GET',
+      path: requestPath,
+      headers: options.headers || {},
+      timeout: options.timeoutMs || 3000,
+    }, res => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => {
+        body += chunk;
+      });
+      res.on('end', () => resolve({ res, body }));
+    });
+
+    req.on('timeout', () => {
+      req.destroy(new Error(`Timed out requesting ${requestPath}`));
+    });
+    req.on('error', reject);
+    if (options.body) req.write(options.body);
+    req.end();
+  });
+}
+
+function pass(label) {
+  console.log(`[PASS] ${label}`);
+}
+
+function fail(label, message) {
+  console.log(`[FAIL] ${label}: ${message}`);
+}
+
+async function preflightCheck(label, fn) {
+  try {
+    const detail = await fn();
+    pass(detail ? `${label} - ${detail}` : label);
+    return true;
+  } catch (err) {
+    fail(label, err.message);
+    return false;
+  }
+}
+
+function assertStatus(result, statusCode) {
+  if (result.res.statusCode !== statusCode) {
+    throw new Error(`expected ${statusCode}, got ${result.res.statusCode}`);
+  }
+}
+
+function assertBody(result, pattern) {
+  if (!pattern.test(result.body)) {
+    throw new Error(`body did not match ${pattern}`);
+  }
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function preflight(command) {
+  const baseUrl = process.env.XZONE_BASE_URL || `http://127.0.0.1:${process.env.PORT || 3000}`;
+  const type = runTool('xbconsoletype.exe', targetArgs(command.target), { allowFailure: true });
+  const target = detectTarget(type.output, command.target);
+  const pcAddress = preferredLocalIPv4(target);
+  const checks = [];
+
+  console.log('Read-only xZone/Xbox preflight. No console settings will be changed.');
+  console.log(`xZone base URL: ${baseUrl}`);
+  console.log(`Neighborhood target: ${target || command.target || '(not detected)'}`);
+  console.log(`Suggested PC LAN IP: ${pcAddress}`);
+  console.log('');
+
+  checks.push(await preflightCheck('Xbox Neighborhood target responds', async () => {
+    if (type.status !== 0) throw new Error(type.output.trim() || 'xbconsoletype failed');
+    if (!target) throw new Error('could not detect target IP');
+    return target;
+  }));
+
+  checks.push(await preflightCheck('Xbox Neighborhood port 730 open', async () => {
+    if (!target) throw new Error('target IP unknown');
+    const open = await checkPort(target, 730);
+    if (!open) throw new Error('port 730 is not reachable');
+    return `${target}:730`;
+  }));
+
+  checks.push(await preflightCheck('Dashboard volume xY is visible', async () => {
+    const result = runTool('xbdir.exe', [...targetArgs(command.target), 'xy:\\'], { allowFailure: true });
+    if (result.status !== 0) throw new Error(result.output.trim() || 'xbdir failed');
+    if (!/Compatibility/.test(result.output) || !/TDBX/.test(result.output)) {
+      throw new Error('xY did not list Compatibility and TDBX');
+    }
+    return 'Compatibility, TDBX';
+  }));
+
+  checks.push(await preflightCheck('xZone text probe', async () => {
+    const result = await httpRequest(baseUrl, '/probe.txt');
+    assertStatus(result, 200);
+    assertBody(result, /xZone OK/);
+  }));
+
+  checks.push(await preflightCheck('xZone XML probe', async () => {
+    const result = await httpRequest(baseUrl, '/probe.xml');
+    assertStatus(result, 200);
+    assertBody(result, /<ProbeResponse/);
+  }));
+
+  checks.push(await preflightCheck('Dashboard XML feeds negotiate', async () => {
+    const result = await httpRequest(baseUrl, '/spotlight', {
+      headers: { Accept: 'application/xml', 'User-Agent': 'Xbox/2.0 xZone-preflight' },
+    });
+    assertStatus(result, 200);
+    assertBody(result, /<SpotlightResponse/);
+  }));
+
+  checks.push(await preflightCheck('Marketplace XML stub responds', async () => {
+    const result = await httpRequest(baseUrl, '/marketplace/featured', {
+      headers: { Host: 'catalog.xboxlive.test', Accept: 'application/xml' },
+    });
+    assertStatus(result, 200);
+    assertBody(result, /<MarketplaceResponse/);
+  }));
+
+  checks.push(await preflightCheck('Proxy-form routing responds', async () => {
+    const result = await httpRequest(baseUrl, 'http://catalog.xboxlive.test/marketplace/featured?preflight=1', {
+      headers: {
+        Host: 'catalog.xboxlive.test',
+        Accept: 'application/xml',
+        'User-Agent': 'Xbox/2.0 xZone-preflight',
+      },
+    });
+    assertStatus(result, 200);
+    if (result.res.headers['x-xzone-proxy-target'] !== 'catalog.xboxlive.test') {
+      throw new Error('missing proxy target response header');
+    }
+    assertBody(result, /<MarketplaceResponse/);
+  }));
+
+  checks.push(await preflightCheck('Ops log sees proxy-form request', async () => {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const result = await httpRequest(baseUrl, '/ops/requests?host=catalog.xboxlive.test');
+      assertStatus(result, 200);
+      const data = JSON.parse(result.body);
+      const seen = data.recent?.some(record => record.proxy?.path === '/marketplace/featured?preflight=1');
+      if (seen) return;
+      await sleep(100);
+    }
+
+    throw new Error('proxy request was not visible in /ops/requests');
+  }));
+
+  const ok = checks.every(Boolean);
+  console.log('');
+  if (ok) {
+    console.log('Preflight passed. Console config was not changed.');
+  } else {
+    console.log('Preflight failed. Console config was not changed.');
+    process.exitCode = 1;
+  }
+}
+
 async function status(command) {
   console.log(`XDK tools: ${defaultXdkBin}`);
   console.log(`Requested target: ${command.target || '(Neighborhood default)'}`);
@@ -273,6 +440,7 @@ async function main() {
   if (command.command === 'dir') return dir(command);
   if (command.command === 'capture') return capture(command);
   if (command.command === 'proxy-plan') return proxyPlan(command);
+  if (command.command === 'preflight') return preflight(command);
 
   throw new Error(`Unknown command "${command.command}". Run with "help" for usage.`);
 }
