@@ -12,11 +12,29 @@ const REDACTED_HEADERS = new Set([
   'x-auth-token',
 ]);
 
+const META_HEADERS = [
+  'host',
+  'user-agent',
+  'accept',
+  'content-type',
+  'x-xbl-contract-version',
+  'x-ms-version',
+  'x-xboxlive-client-ip',
+];
+
 function redactHeaders(headers) {
   return Object.fromEntries(Object.entries(headers).map(([key, value]) => [
     key,
     REDACTED_HEADERS.has(key.toLowerCase()) ? '[redacted]' : value,
   ]));
+}
+
+function pickMetaHeaders(headers) {
+  return Object.fromEntries(META_HEADERS.flatMap(name => {
+    const value = headers[name];
+    if (value == null) return [];
+    return [[name, Array.isArray(value) ? value.join(', ') : value]];
+  }));
 }
 
 function stringifyBody(body) {
@@ -43,6 +61,9 @@ function formatEntry(req, options = {}) {
   if (record.statusCode) lines.push(`Status: ${record.statusCode}`);
   if (record.durationMs != null) lines.push(`Duration: ${record.durationMs}ms`);
   if (record.ip) lines.push(`IP: ${record.ip}`);
+  if (record.meta && Object.keys(record.meta).length) {
+    lines.push(`Meta: ${JSON.stringify(record.meta, null, 2)}`);
+  }
 
   if (record.headers) {
     lines.push(`Headers: ${JSON.stringify(record.headers, null, 2)}`);
@@ -68,6 +89,7 @@ function buildRecord(req, options = {}) {
     ip: req.ip,
   };
 
+  if (options.includeMeta) record.meta = pickMetaHeaders(req.headers);
   if (options.includeHeaders) record.headers = redactHeaders(req.headers);
   if (options.includeBody) {
     const body = truncate(stringifyBody(req.body));

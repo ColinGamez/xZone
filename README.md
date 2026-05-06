@@ -41,6 +41,7 @@ Useful local URLs:
 - `http://localhost:3000/ops/routes` - route inventory
 - `http://localhost:3000/ops/requests?limit=200` - recent request summary
 - `http://localhost:3000/ops/requests?status=404` - filtered request summary
+- `http://localhost:3000/ops/requests?host=xboxlive` - host-filtered request summary
 - `http://localhost:3000/ops/unhandled` - recent errors and missing routes
 - `http://localhost:3000/ops/export` - JSON export of local service tables
 
@@ -52,6 +53,7 @@ Run the backend while the real dashboard is pointed at xZone. The server writes:
 - `xzone/logs/all-requests.jsonl` - machine-readable request log
 
 Use `/ops/unhandled` after opening dashboard blades to see which service paths still need proper stubs.
+Use `DELETE /ops/requests` from localhost to clear discovery logs before a fresh blade test.
 
 `/ops/*` is available from localhost by default. If you set `XZONE_ADMIN_TOKEN`, remote ops callers must send `X-Admin-Token`.
 

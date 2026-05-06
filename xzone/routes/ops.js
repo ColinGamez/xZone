@@ -63,11 +63,15 @@ function filterRecords(records, query) {
   const status = query.status ? String(query.status) : '';
   const method = query.method ? String(query.method).toUpperCase() : '';
   const contains = query.contains ? String(query.contains).toLowerCase() : '';
+  const host = query.host ? String(query.host).toLowerCase() : '';
+  const userAgent = query.ua ? String(query.ua).toLowerCase() : '';
 
   return records.filter(record => {
     if (status && String(record.statusCode) !== status) return false;
     if (method && String(record.method || '').toUpperCase() !== method) return false;
     if (contains && !String(record.originalUrl || record.path || '').toLowerCase().includes(contains)) return false;
+    if (host && !String(record.meta?.host || '').toLowerCase().includes(host)) return false;
+    if (userAgent && !String(record.meta?.['user-agent'] || '').toLowerCase().includes(userAgent)) return false;
     return true;
   });
 }
@@ -75,6 +79,8 @@ function filterRecords(records, query) {
 function summarize(records) {
   const byPath = new Map();
   const byStatus = new Map();
+  const byHost = new Map();
+  const byUserAgent = new Map();
 
   for (const record of records) {
     const key = `${record.method || 'GET'} ${requestPath(record)}`;
@@ -92,10 +98,18 @@ function summarize(records) {
 
     const status = String(record.statusCode || 'unknown');
     byStatus.set(status, (byStatus.get(status) || 0) + 1);
+
+    const host = String(record.meta?.host || 'unknown');
+    byHost.set(host, (byHost.get(host) || 0) + 1);
+
+    const ua = String(record.meta?.['user-agent'] || 'unknown').slice(0, 160);
+    byUserAgent.set(ua, (byUserAgent.get(ua) || 0) + 1);
   }
 
   return {
     byStatus: Object.fromEntries([...byStatus.entries()].sort()),
+    byHost: Object.fromEntries([...byHost.entries()].sort((a, b) => b[1] - a[1])),
+    byUserAgent: Object.fromEntries([...byUserAgent.entries()].sort((a, b) => b[1] - a[1])),
     byPath: [...byPath.values()].sort((a, b) => b.count - a.count),
   };
 }
@@ -131,6 +145,22 @@ router.get('/requests', (req, res) => {
     count: records.length,
     summary,
     recent: records.slice(-50).reverse(),
+  });
+});
+
+router.delete('/requests', (req, res) => {
+  const files = [
+    REQUEST_LOG,
+    path.join(config.rootDir, 'logs', 'all-requests.log'),
+  ];
+
+  for (const file of files) {
+    if (fs.existsSync(file)) fs.truncateSync(file, 0);
+  }
+
+  res.json({
+    status: 'cleared',
+    files,
   });
 });
 
@@ -214,6 +244,7 @@ router.get('/routes', (req, res) => {
       'GET /ops/health',
       'GET /ops/routes',
       'GET /ops/requests',
+      'DELETE /ops/requests',
       'GET /ops/unhandled',
       'GET /ops/export',
     ],

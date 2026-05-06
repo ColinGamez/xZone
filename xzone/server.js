@@ -3,6 +3,7 @@
 const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
+const os = require('os');
 const path = require('path');
 const config = require('./config');
 const { initDb, getDb } = require('./db/schema');
@@ -32,6 +33,7 @@ function requestLogger(req, res, next) {
       statusCode: res.statusCode,
       durationMs,
       includeBody: false,
+      includeMeta: true,
     });
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} ${res.statusCode} ${durationMs}ms`);
   });
@@ -141,6 +143,13 @@ function createApp() {
   return app;
 }
 
+function getLanAddresses() {
+  return Object.values(os.networkInterfaces())
+    .flat()
+    .filter(addr => addr && addr.family === 'IPv4' && !addr.internal)
+    .map(addr => addr.address);
+}
+
 async function start() {
   await initDb();
   const app = createApp();
@@ -150,6 +159,9 @@ async function start() {
     console.log(`Health:    http://localhost:${config.port}/`);
     console.log(`Dashboard: http://localhost:${config.port}/dashboard`);
     console.log(`Stats:     http://localhost:${config.port}/stats`);
+    for (const address of getLanAddresses()) {
+      console.log(`LAN:       http://${address}:${config.port}/`);
+    }
     console.log('');
   });
   return server;

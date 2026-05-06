@@ -8,7 +8,8 @@ const test = require('node:test');
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xzone-'));
 process.env.DB_PATH = path.join(tmpDir, 'xzone.db');
-process.env.XZONE_REQUEST_LOG = '0';
+process.env.XZONE_REQUEST_LOG = '1';
+process.env.XZONE_LOG_MAX_BODY_CHARS = '2000';
 
 const { initDb } = require('../db/schema');
 const { createApp } = require('../server');
@@ -65,6 +66,10 @@ test('health, dashboard, and XML fallback respond', async () => {
 });
 
 test('ops endpoints and XML-aware marketplace stubs work', async () => {
+  const cleared = await json('/ops/requests', { method: 'DELETE' });
+  assert.equal(cleared.res.status, 200);
+  assert.equal(cleared.body.status, 'cleared');
+
   const ops = await json('/ops/health');
   assert.equal(ops.res.status, 200);
   assert.equal(ops.body.status, 'ok');
@@ -80,7 +85,11 @@ test('ops endpoints and XML-aware marketplace stubs work', async () => {
   assert.deepEqual(marketplaceJson.body.items, []);
 
   const marketplaceXml = await fetch(`${baseUrl}/marketplace/featured`, {
-    headers: { Accept: 'application/xml' },
+    headers: {
+      Accept: 'application/xml',
+      'User-Agent': 'Xbox/2.0 xZone-smoke',
+      Host: 'catalog.xboxlive.test',
+    },
   });
   assert.equal(marketplaceXml.status, 200);
   assert.match(marketplaceXml.headers.get('content-type'), /application\/xml/);
@@ -89,6 +98,14 @@ test('ops endpoints and XML-aware marketplace stubs work', async () => {
   const exported = await json('/ops/export');
   assert.equal(exported.res.status, 200);
   assert.ok(Array.isArray(exported.body.data.users));
+
+  await new Promise(resolve => setTimeout(resolve, 50));
+  const testHost = new URL(baseUrl).host;
+  const requests = await json(`/ops/requests?host=${encodeURIComponent(testHost)}&ua=xbox`);
+  assert.equal(requests.res.status, 200);
+  assert.ok(requests.body.summary.byPath.some(row => row.route === 'GET /marketplace/featured'));
+  assert.equal(requests.body.summary.byHost[testHost], 1);
+  assert.ok(Object.keys(requests.body.summary.byUserAgent).some(ua => ua.includes('Xbox/2.0')));
 });
 
 test('title admin lifecycle supports add, update, presence, and soft delete', async () => {
