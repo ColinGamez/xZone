@@ -2,6 +2,7 @@
 
 const express = require('express');
 const cors = require('cors');
+const crypto = require('crypto');
 const path = require('path');
 const config = require('./config');
 const { initDb, getDb } = require('./db/schema');
@@ -44,18 +45,22 @@ function createApp() {
 
   // Middleware
   app.use((req, res, next) => {
+    req.id = req.headers['x-request-id'] || crypto.randomUUID();
+    res.set('X-Request-Id', req.id);
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('X-Xzone-Version', config.serviceVersion);
     next();
   });
-  app.use(cors());
+  app.use(cors({
+    origin: config.corsOrigin === '*' ? true : config.corsOrigin.split(',').map(origin => origin.trim()),
+  }));
+  app.use(requestLogger);
   app.use(express.json({ limit: config.requestBodyLimit }));
   app.use(express.urlencoded({ extended: true, limit: config.requestBodyLimit }));
   app.use(express.text({
     type: ['application/xml', 'text/xml', '*/xml'],
     limit: config.requestBodyLimit,
   }));
-  app.use(requestLogger);
 
   app.get('/favicon.ico', (req, res) => {
     res.status(204).end();
@@ -122,8 +127,15 @@ function createApp() {
 
   app.use((err, req, res, next) => {
     if (res.headersSent) return next(err);
-    console.error('[ERROR]', err.stack || err);
-    sendXmlError(res, 500, 'InternalServerError', req.path);
+    const statusCode = Number(err.status || err.statusCode || 500);
+    const safeStatusCode = statusCode >= 400 && statusCode < 600 ? statusCode : 500;
+    const status = safeStatusCode === 400 ? 'BadRequest' : 'InternalServerError';
+    if (safeStatusCode >= 500) {
+      console.error('[ERROR]', err.stack || err);
+    } else {
+      console.warn(`[WARN] ${req.method} ${req.originalUrl} ${safeStatusCode}: ${err.message}`);
+    }
+    sendXmlError(res, safeStatusCode, status, req.path);
   });
 
   return app;

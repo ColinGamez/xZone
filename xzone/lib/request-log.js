@@ -57,6 +57,7 @@ function formatEntry(req, options = {}) {
 function buildRecord(req, options = {}) {
   const fullPath = String(req.originalUrl || req.url || req.path || '/').split('?')[0] || '/';
   const record = {
+    requestId: req.id,
     timestamp: new Date().toISOString(),
     method: req.method,
     originalUrl: req.originalUrl,

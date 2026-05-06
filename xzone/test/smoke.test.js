@@ -39,6 +39,7 @@ test('health, dashboard, and XML fallback respond', async () => {
   assert.equal(health.res.status, 200);
   assert.equal(health.body.service, 'Xzone');
   assert.equal(health.body.dashboard, '/dashboard');
+  assert.match(health.res.headers.get('x-request-id'), /^[0-9a-f-]{36}$/i);
 
   const dashboard = await fetch(`${baseUrl}/dashboard`);
   assert.equal(dashboard.status, 200);
@@ -53,6 +54,14 @@ test('health, dashboard, and XML fallback respond', async () => {
   assert.equal(missing.status, 404);
   assert.match(missing.headers.get('content-type'), /application\/xml/);
   assert.match(await missing.text(), /%3Cbad%3E/);
+
+  const malformed = await fetch(`${baseUrl}/social/feed`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{"bad"',
+  });
+  assert.equal(malformed.status, 400);
+  assert.match(await malformed.text(), /BadRequest/);
 });
 
 test('ops endpoints and XML-aware marketplace stubs work', async () => {
@@ -64,6 +73,7 @@ test('ops endpoints and XML-aware marketplace stubs work', async () => {
   const routes = await json('/ops/routes');
   assert.equal(routes.res.status, 200);
   assert.ok(routes.body.stubs.includes('ALL /marketplace/*'));
+  assert.ok(routes.body.ops.includes('GET /ops/export'));
 
   const marketplaceJson = await json('/marketplace/featured');
   assert.equal(marketplaceJson.res.status, 200);
@@ -75,6 +85,39 @@ test('ops endpoints and XML-aware marketplace stubs work', async () => {
   assert.equal(marketplaceXml.status, 200);
   assert.match(marketplaceXml.headers.get('content-type'), /application\/xml/);
   assert.match(await marketplaceXml.text(), /<MarketplaceResponse/);
+
+  const exported = await json('/ops/export');
+  assert.equal(exported.res.status, 200);
+  assert.ok(Array.isArray(exported.body.data.users));
+});
+
+test('title admin lifecycle supports add, update, presence, and soft delete', async () => {
+  const added = await json('/titles', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ titleId: '4D530919', name: 'Halo Reach', notes: 'Test title' }),
+  });
+  assert.equal(added.res.status, 200);
+  assert.equal(added.body.status, 'added');
+
+  const updated = await json('/titles/4D530919', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Halo: Reach', notes: 'Updated title' }),
+  });
+  assert.equal(updated.res.status, 200);
+  assert.equal(updated.body.title.name, 'Halo: Reach');
+
+  const listed = await json('/titles');
+  assert.equal(listed.body.count, 1);
+  assert.equal(listed.body.titles[0].title_id, '4D530919');
+
+  const removed = await json('/titles/4D530919', { method: 'DELETE' });
+  assert.equal(removed.res.status, 200);
+  assert.equal(removed.body.status, 'removed');
+
+  const after = await json('/titles');
+  assert.equal(after.body.count, 0);
 });
 
 test('feed posting auto-registers a user and awards Famestar points', async () => {

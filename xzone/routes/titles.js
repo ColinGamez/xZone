@@ -2,12 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const { getDb }       = require('../db/schema');
 const config = require('../config');
-
-function requireAdminIfConfigured(req, res, next) {
-  if (!config.adminToken) return next();
-  if (req.headers['x-admin-token'] === config.adminToken) return next();
-  return res.status(403).json({ error: 'Admin token required' });
-}
+const { requireAdminIfConfigured } = require('../middleware/admin');
 
 function cleanText(value, maxLength) {
   return String(value || '').trim().slice(0, maxLength);
@@ -54,6 +49,44 @@ router.post('/', requireAdminIfConfigured, (req, res) => {
   } catch (e) {
     res.status(409).json({ error: 'Title already exists' });
   }
+});
+
+// PATCH /titles/:titleId — update title metadata or active state.
+router.patch('/:titleId', requireAdminIfConfigured, (req, res) => {
+  const titleId = cleanText(req.params.titleId, 64);
+  const title = getDb().prepare('SELECT * FROM titles WHERE title_id = ?').get(titleId);
+  if (!title) return res.status(404).json({ error: 'Title not found' });
+
+  const name = req.body.name == null ? title.name : cleanText(req.body.name, 120);
+  const notes = req.body.notes == null ? title.notes : cleanText(req.body.notes, 500);
+  const isActive = req.body.isActive == null
+    ? title.is_active
+    : (req.body.isActive ? 1 : 0);
+
+  if (!name) return res.status(400).json({ error: 'name cannot be empty' });
+
+  getDb().prepare(`
+    UPDATE titles SET name = ?, notes = ?, is_active = ? WHERE title_id = ?
+  `).run(name, notes || null, isActive, titleId);
+
+  res.json({
+    status: 'updated',
+    title: getDb().prepare('SELECT * FROM titles WHERE title_id = ?').get(titleId),
+  });
+});
+
+// DELETE /titles/:titleId — soft-delete a title from public listings.
+router.delete('/:titleId', requireAdminIfConfigured, (req, res) => {
+  const titleId = cleanText(req.params.titleId, 64);
+  const db = getDb();
+  const title = db.prepare('SELECT title_id FROM titles WHERE title_id = ?').get(titleId);
+  if (!title) return res.status(404).json({ error: 'Title not found' });
+
+  db.prepare(`
+    UPDATE titles SET is_active = 0 WHERE title_id = ?
+  `).run(titleId);
+
+  res.json({ status: 'removed', titleId });
 });
 
 // GET /titles/:titleId/presence — who's playing this title right now

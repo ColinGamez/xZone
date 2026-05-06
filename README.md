@@ -40,7 +40,9 @@ Useful local URLs:
 - `http://localhost:3000/ops/health` - ops health
 - `http://localhost:3000/ops/routes` - route inventory
 - `http://localhost:3000/ops/requests?limit=200` - recent request summary
+- `http://localhost:3000/ops/requests?status=404` - filtered request summary
 - `http://localhost:3000/ops/unhandled` - recent errors and missing routes
+- `http://localhost:3000/ops/export` - JSON export of local service tables
 
 ## Request Discovery
 
@@ -51,6 +53,8 @@ Run the backend while the real dashboard is pointed at xZone. The server writes:
 
 Use `/ops/unhandled` after opening dashboard blades to see which service paths still need proper stubs.
 
+`/ops/*` is available from localhost by default. If you set `XZONE_ADMIN_TOKEN`, remote ops callers must send `X-Admin-Token`.
+
 ## Configuration
 
 Environment variables:
@@ -59,6 +63,7 @@ Environment variables:
 - `HOST` - bind address, default `0.0.0.0`
 - `DB_PATH` - SQLite database path
 - `REQUEST_BODY_LIMIT` - request body limit, default `128kb`
+- `XZONE_CORS_ORIGIN` - CORS origin list or `*`, default `*`
 - `XZONE_ADMIN_TOKEN` - optional token required by admin routes
 - `XZONE_REQUEST_LOG` - enable request logging, default `true`
 - `XZONE_LOG_MAX_BODY_CHARS` - max logged body size, default `4000`
@@ -69,7 +74,9 @@ Environment variables:
 ## Checks
 
 ```powershell
-npm test
-npm audit --omit=dev
+npm run validate
 ```
 
+`npm run validate` runs JavaScript syntax checks, smoke tests, and production dependency audit.
+
+A GitHub Actions example lives at `docs/github-actions-ci.example.yml`. Copy it to `.github/workflows/ci.yml` after your GitHub token/session has `workflow` scope.

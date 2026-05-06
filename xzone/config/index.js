@@ -22,6 +22,7 @@ module.exports = {
   requestBodyLimit: process.env.REQUEST_BODY_LIMIT || '128kb',
   adminToken: process.env.XZONE_ADMIN_TOKEN || '',
   trustProxy: boolEnv('XZONE_TRUST_PROXY', false),
+  corsOrigin: process.env.XZONE_CORS_ORIGIN || '*',
 
   // Xzone identity
   serviceName: 'Xzone',

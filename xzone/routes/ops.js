@@ -41,13 +41,43 @@ function readJsonl(file, limit) {
   });
 }
 
+function parseLimit(value) {
+  return Math.min(
+    Math.max(Number.parseInt(value, 10) || config.ops.maxRecentRequests, 1),
+    1000
+  );
+}
+
+function requestPath(record) {
+  return String(record.originalUrl || record.path || '/').split('?')[0] || '/';
+}
+
+function normalizeRecord(record) {
+  return {
+    ...record,
+    path: requestPath(record),
+  };
+}
+
+function filterRecords(records, query) {
+  const status = query.status ? String(query.status) : '';
+  const method = query.method ? String(query.method).toUpperCase() : '';
+  const contains = query.contains ? String(query.contains).toLowerCase() : '';
+
+  return records.filter(record => {
+    if (status && String(record.statusCode) !== status) return false;
+    if (method && String(record.method || '').toUpperCase() !== method) return false;
+    if (contains && !String(record.originalUrl || record.path || '').toLowerCase().includes(contains)) return false;
+    return true;
+  });
+}
+
 function summarize(records) {
   const byPath = new Map();
   const byStatus = new Map();
 
   for (const record of records) {
-    const requestPath = String(record.originalUrl || record.path || '/').split('?')[0] || '/';
-    const key = `${record.method || 'GET'} ${requestPath}`;
+    const key = `${record.method || 'GET'} ${requestPath(record)}`;
     const current = byPath.get(key) || {
       route: key,
       count: 0,
@@ -92,11 +122,8 @@ router.get('/health', (req, res) => {
 });
 
 router.get('/requests', (req, res) => {
-  const limit = Math.min(
-    Number.parseInt(req.query.limit, 10) || config.ops.maxRecentRequests,
-    1000
-  );
-  const records = readJsonl(REQUEST_LOG, limit);
+  const limit = parseLimit(req.query.limit);
+  const records = filterRecords(readJsonl(REQUEST_LOG, limit), req.query).map(normalizeRecord);
   const summary = summarize(records);
 
   res.json({
@@ -108,17 +135,40 @@ router.get('/requests', (req, res) => {
 });
 
 router.get('/unhandled', (req, res) => {
-  const limit = Math.min(
-    Number.parseInt(req.query.limit, 10) || config.ops.maxRecentRequests,
-    1000
-  );
-  const records = readJsonl(REQUEST_LOG, limit)
+  const limit = parseLimit(req.query.limit);
+  const records = filterRecords(readJsonl(REQUEST_LOG, limit), req.query)
     .filter(record => Number(record.statusCode) >= 400)
+    .map(normalizeRecord)
     .reverse();
 
   res.json({
     count: records.length,
     requests: records,
+  });
+});
+
+router.get('/export', (req, res) => {
+  const db = getDb();
+  const tables = [
+    'users',
+    'famestar',
+    'famestar_awards',
+    'famestar_activity',
+    'feed_posts',
+    'titles',
+    'sessions',
+  ];
+
+  const data = Object.fromEntries(tables.map(table => [
+    table,
+    db.prepare(`SELECT * FROM ${table}`).all(),
+  ]));
+
+  res.json({
+    service: config.serviceName,
+    version: config.serviceVersion,
+    exportedAt: new Date().toISOString(),
+    data,
   });
 });
 
@@ -140,6 +190,8 @@ router.get('/routes', (req, res) => {
       'GET /titles',
       'POST /titles',
       'GET /titles/:titleId',
+      'PATCH /titles/:titleId',
+      'DELETE /titles/:titleId',
       'GET /titles/:titleId/presence',
     ],
     stubs: [
@@ -163,6 +215,7 @@ router.get('/routes', (req, res) => {
       'GET /ops/routes',
       'GET /ops/requests',
       'GET /ops/unhandled',
+      'GET /ops/export',
     ],
   });
 });
