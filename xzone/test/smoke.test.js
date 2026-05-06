@@ -8,6 +8,7 @@ const test = require('node:test');
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xzone-'));
 process.env.DB_PATH = path.join(tmpDir, 'xzone.db');
+process.env.XZONE_LOG_DIR = path.join(tmpDir, 'logs');
 process.env.XZONE_REQUEST_LOG = '1';
 process.env.XZONE_LOG_MAX_BODY_CHARS = '2000';
 
@@ -26,6 +27,7 @@ test.before(async () => {
 
 test.after(async () => {
   if (server) await new Promise(resolve => server.close(resolve));
+  await new Promise(resolve => setTimeout(resolve, 100));
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 

@@ -12,7 +12,7 @@ const { sendXmlError, sendXmlStatus } = require('./lib/responses');
 
 // Master request log captures every route, including 404s. It is useful while
 // mapping the NXE/Metro service calls made by each dashboard blade.
-const MASTER_LOG = path.join(__dirname, 'logs', 'all-requests.log');
+const MASTER_LOG = path.join(config.logging.dir, 'all-requests.log');
 const DASHBOARD_FILE = path.resolve(__dirname, '..', 'xzone-index.html');
 
 // Routes

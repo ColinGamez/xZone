@@ -7,7 +7,7 @@ const config = require('../config');
 const { getDb } = require('../db/schema');
 
 const router = express.Router();
-const REQUEST_LOG = path.join(config.rootDir, 'logs', 'all-requests.jsonl');
+const REQUEST_LOG = path.join(config.logging.dir, 'all-requests.jsonl');
 
 function isLocalRequest(req) {
   const ip = String(req.ip || req.socket.remoteAddress || '');
@@ -149,10 +149,11 @@ router.get('/requests', (req, res) => {
 });
 
 router.delete('/requests', (req, res) => {
-  const files = [
-    REQUEST_LOG,
-    path.join(config.rootDir, 'logs', 'all-requests.log'),
-  ];
+  const files = fs.existsSync(config.logging.dir)
+    ? fs.readdirSync(config.logging.dir)
+      .filter(name => name.endsWith('-requests.log') || name.endsWith('-requests.jsonl'))
+      .map(name => path.join(config.logging.dir, name))
+    : [];
 
   for (const file of files) {
     if (fs.existsSync(file)) fs.truncateSync(file, 0);

@@ -3,8 +3,9 @@ const router  = express.Router();
 const path    = require('path');
 const { appendRequestLog } = require('../lib/request-log');
 const { escapeXml, sendXml } = require('../lib/responses');
+const config = require('../config');
 
-const LOG_FILE = path.join(__dirname, '..', 'logs', 'avatar-requests.log');
+const LOG_FILE = path.join(config.logging.dir, 'avatar-requests.log');
 
 router.use((req, res, next) => {
   appendRequestLog(LOG_FILE, req, { includeHeaders: true, includeBody: true });

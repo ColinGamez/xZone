@@ -68,6 +68,7 @@ Environment variables:
 - `XZONE_CORS_ORIGIN` - CORS origin list or `*`, default `*`
 - `XZONE_ADMIN_TOKEN` - optional token required by admin routes
 - `XZONE_REQUEST_LOG` - enable request logging, default `true`
+- `XZONE_LOG_DIR` - request log directory, default `xzone/logs`
 - `XZONE_LOG_MAX_BODY_CHARS` - max logged body size, default `4000`
 - `XZONE_ONLINE_WINDOW_SECONDS` - presence window, default `300`
 - `XZONE_HEARTBEAT_POINT_COOLDOWN_SECONDS` - Famestar heartbeat cooldown, default `300`

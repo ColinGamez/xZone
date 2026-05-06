@@ -30,6 +30,7 @@ module.exports = {
 
   logging: {
     enabled: boolEnv('XZONE_REQUEST_LOG', true),
+    dir: process.env.XZONE_LOG_DIR || path.join(rootDir, 'logs'),
     maxBodyChars: intEnv('XZONE_LOG_MAX_BODY_CHARS', 4000),
   },
 

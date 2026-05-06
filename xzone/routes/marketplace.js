@@ -3,8 +3,9 @@ const router  = express.Router();
 const path    = require('path');
 const { appendRequestLog } = require('../lib/request-log');
 const { escapeXml, sendXml, wantsXml } = require('../lib/responses');
+const config = require('../config');
 
-const LOG_FILE = path.join(__dirname, '..', 'logs', 'marketplace-requests.log');
+const LOG_FILE = path.join(config.logging.dir, 'marketplace-requests.log');
 
 // Log every incoming marketplace request before routing
 router.use((req, res, next) => {
