@@ -25,6 +25,7 @@ const socialRoutes = require('./routes/social');
 const titlesRoutes = require('./routes/titles');
 const opsRoutes = require('./routes/ops');
 const probeRoutes = require('./routes/probe');
+const { mountNxeStubs } = require('./routes/nxe');
 
 function requestLogger(req, res, next) {
   const started = Date.now();
@@ -103,6 +104,7 @@ function createApp() {
   // endpoints that no longer exist.
   app.use('/avatar', avatarRoutes);
   app.use('/marketplace', marketplaceRoutes);
+  mountNxeStubs(app);
 
   // Zune / Video / Music blade stubs. NXE expects XML from Live-era services.
   app.all('/zune/*', (req, res) => sendXmlStatus(res, 'ZuneResponse', 'Success', '<Items/>'));

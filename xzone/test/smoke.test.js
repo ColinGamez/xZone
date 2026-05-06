@@ -117,6 +117,8 @@ test('ops endpoints and XML-aware marketplace stubs work', async () => {
   assert.ok(routes.body.core.includes('GET /probe.txt'));
   assert.ok(routes.body.core.includes('GET /social/heartbeat'));
   assert.ok(routes.body.stubs.includes('ALL /marketplace/*'));
+  assert.ok(routes.body.stubs.includes('ALL /friends/*'));
+  assert.ok(routes.body.stubs.includes('ALL /users/*'));
   assert.ok(routes.body.ops.includes('GET /ops/export'));
 
   const marketplaceJson = await json('/marketplace/featured');
@@ -157,6 +159,14 @@ test('ops endpoints and XML-aware marketplace stubs work', async () => {
   assert.equal(famestarXml.status, 200);
   assert.match(await famestarXml.text(), /<FamestarLeaderboard/);
 
+  const friendsXml = await fetch(`${baseUrl}/friends/list`, {
+    headers: { 'User-Agent': 'Xbox/2.0 NXE-smoke' },
+  });
+  assert.equal(friendsXml.status, 200);
+  assert.equal(friendsXml.headers.get('x-xzone-stub'), 'nxe-friends');
+  assert.match(friendsXml.headers.get('content-type'), /application\/xml/);
+  assert.match(await friendsXml.text(), /<FriendsResponse/);
+
   const proxyForm = await rawHttp('http://catalog.xboxlive.test/marketplace/featured?blade=games', {
     headers: {
       Host: 'catalog.xboxlive.test',
@@ -167,6 +177,18 @@ test('ops endpoints and XML-aware marketplace stubs work', async () => {
   assert.equal(proxyForm.res.statusCode, 200);
   assert.equal(proxyForm.res.headers['x-xzone-proxy-target'], 'catalog.xboxlive.test');
   assert.match(proxyForm.body, /<MarketplaceResponse/);
+
+  const liveProxyForm = await rawHttp('http://live.xbox.com/users/me/profile', {
+    headers: {
+      Host: 'live.xbox.com',
+      Accept: 'application/xml',
+      'User-Agent': 'Xbox/2.0 live-proxy-smoke',
+    },
+  });
+  assert.equal(liveProxyForm.res.statusCode, 200);
+  assert.equal(liveProxyForm.res.headers['x-xzone-proxy-target'], 'live.xbox.com');
+  assert.equal(liveProxyForm.res.headers['x-xzone-stub'], 'nxe-users');
+  assert.match(liveProxyForm.body, /<UsersResponse/);
 
   await new Promise(resolve => setTimeout(resolve, 50));
   const testHost = new URL(baseUrl).host;
@@ -179,6 +201,10 @@ test('ops endpoints and XML-aware marketplace stubs work', async () => {
   const proxyRequests = await json('/ops/requests?host=catalog.xboxlive.test');
   assert.equal(proxyRequests.res.status, 200);
   assert.ok(proxyRequests.body.recent.some(record => record.proxy?.path === '/marketplace/featured?blade=games'));
+
+  const liveProxyRequests = await json('/ops/requests?host=live.xbox.com');
+  assert.equal(liveProxyRequests.res.status, 200);
+  assert.ok(liveProxyRequests.body.recent.some(record => record.proxy?.path === '/users/me/profile'));
 });
 
 test('title admin lifecycle supports add, update, presence, and soft delete', async () => {

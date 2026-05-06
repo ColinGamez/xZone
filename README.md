@@ -92,6 +92,10 @@ npm run xbox:preflight
 
 Set `XBOX_TARGET=192.168.2.83` if Neighborhood does not already have the right default target. Set `XDK_BIN` if the Xbox 360 SDK is installed outside the usual `Program Files (x86)` path. The helper decodes Japanese XDK output as `shift_jis` by default; override `XDK_OUTPUT_ENCODING` if your SDK tools emit a different code page.
 
+## NXE Compatibility Stubs
+
+Until real NXE traffic tells us the exact contracts, xZone returns logged empty XML success responses for common Live-era surfaces such as profile, friends, messages, presence, achievements, account, privacy, notifications, storage, service/config, users, and `live`/`xboxlive` paths. These stubs prevent obvious dashboard blades from hanging while still recording every request in `xzone/logs/nxe-requests.log` and the master request log for later mapping.
+
 ## Configuration
 
 Environment variables:

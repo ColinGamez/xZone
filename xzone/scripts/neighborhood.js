@@ -306,6 +306,14 @@ async function preflight(command) {
     assertBody(result, /<MarketplaceResponse/);
   }));
 
+  checks.push(await preflightCheck('NXE Live service stubs respond', async () => {
+    const result = await httpRequest(baseUrl, '/friends/list', {
+      headers: { Accept: 'application/xml', 'User-Agent': 'Xbox/2.0 xZone-preflight' },
+    });
+    assertStatus(result, 200);
+    assertBody(result, /<FriendsResponse/);
+  }));
+
   checks.push(await preflightCheck('Proxy-form routing responds', async () => {
     const result = await httpRequest(baseUrl, 'http://catalog.xboxlive.test/marketplace/featured?preflight=1', {
       headers: {
@@ -319,6 +327,21 @@ async function preflight(command) {
       throw new Error('missing proxy target response header');
     }
     assertBody(result, /<MarketplaceResponse/);
+  }));
+
+  checks.push(await preflightCheck('Live host proxy-form stubs respond', async () => {
+    const result = await httpRequest(baseUrl, 'http://live.xbox.com/users/me/profile?preflight=1', {
+      headers: {
+        Host: 'live.xbox.com',
+        Accept: 'application/xml',
+        'User-Agent': 'Xbox/2.0 xZone-preflight',
+      },
+    });
+    assertStatus(result, 200);
+    if (result.res.headers['x-xzone-proxy-target'] !== 'live.xbox.com') {
+      throw new Error('missing proxy target response header');
+    }
+    assertBody(result, /<UsersResponse/);
   }));
 
   checks.push(await preflightCheck('Ops log sees proxy-form request', async () => {

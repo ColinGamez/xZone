@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const config = require('../config');
 const { getDb } = require('../db/schema');
+const { routeInventory: nxeRouteInventory } = require('./nxe');
 
 const router = express.Router();
 const REQUEST_LOG = path.join(config.logging.dir, 'all-requests.jsonl');
@@ -251,6 +252,7 @@ router.get('/routes', (req, res) => {
       'GET /marketplace/deals',
       'GET /marketplace/new',
       'ALL /marketplace/*',
+      ...nxeRouteInventory(),
       'ALL /zune/*',
       'ALL /video/*',
       'ALL /music/*',
