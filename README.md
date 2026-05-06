@@ -72,6 +72,20 @@ http://YOUR_PC_IP:3000/social/online
 
 `X-Gamertag` and `X-XUID` headers still take priority, but query/body auth is enabled by default so simple Neighborhood scripts, launchers, or browser hits can register presence. Set `XZONE_ALLOW_SIMPLE_AUTH=false` if this server is ever exposed outside your LAN.
 
+## Xbox 360 Neighborhood
+
+If the Xbox 360 SDK tools are installed, xZone includes read-only helper commands for the connected kit:
+
+```powershell
+npm run xbox:status
+npm run xbox:dir -- xY:\
+npm run xbox:capture
+```
+
+`xbox:status` reports the target type, common mounted drives, xZone probe URLs for this PC, and whether the target has hit the xZone request log. `xbox:capture` saves the current front-buffer screenshot to `xzone/test-results/xbox-current.bmp`.
+
+Set `XBOX_TARGET=192.168.2.83` if Neighborhood does not already have the right default target. Set `XDK_BIN` if the Xbox 360 SDK is installed outside the usual `Program Files (x86)` path. The helper decodes Japanese XDK output as `shift_jis` by default; override `XDK_OUTPUT_ENCODING` if your SDK tools emit a different code page.
+
 ## Configuration
 
 Environment variables:
@@ -89,6 +103,9 @@ Environment variables:
 - `XZONE_ONLINE_WINDOW_SECONDS` - presence window, default `300`
 - `XZONE_HEARTBEAT_POINT_COOLDOWN_SECONDS` - Famestar heartbeat cooldown, default `300`
 - `XZONE_TRUST_PROXY` - trust one proxy hop, default `false`
+- `XBOX_TARGET` - optional target IP/name for Neighborhood helper scripts
+- `XDK_BIN` - optional path to Xbox 360 SDK command-line tools
+- `XDK_OUTPUT_ENCODING` - optional XDK command output encoding, default `shift_jis`
 
 ## Checks
 

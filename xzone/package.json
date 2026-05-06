@@ -8,7 +8,10 @@
     "dev": "nodemon server.js",
     "check": "node scripts/check-js.js",
     "test": "node --test",
-    "validate": "npm run check && npm test && npm audit --omit=dev"
+    "validate": "npm run check && npm test && npm audit --omit=dev",
+    "xbox:status": "node scripts/neighborhood.js status",
+    "xbox:dir": "node scripts/neighborhood.js dir",
+    "xbox:capture": "node scripts/neighborhood.js capture"
   },
   "engines": {
     "node": ">=18"
