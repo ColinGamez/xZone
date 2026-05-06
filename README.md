@@ -1,0 +1,75 @@
+# xZone
+
+xZone is a custom Xbox 360 NXE-era service backend and experiment harness. The repo contains the Node/Express backend, service stubs, request discovery tools, a small browser control panel, and smoke tests.
+
+The original dashboard binaries and local runtime data are intentionally not tracked in git.
+
+## What Is In This Repo
+
+- `xzone/server.js` - Express service host.
+- `xzone/routes/` - social, Famestar, titles, avatar, marketplace, ops, and dead-service stubs.
+- `xzone/db/schema.js` - sql.js-backed SQLite wrapper and schema setup.
+- `xzone-index.html` - browser control panel for checking the backend.
+- `xzone/test/smoke.test.js` - smoke tests for core service behavior.
+
+## What Stays Local
+
+These are ignored on purpose:
+
+- `dash.xex`
+- `shrdres.xzp`
+- `xzone/db/xzone.db`
+- `xzone/logs/`
+- `xzone/node_modules/`
+
+## Setup
+
+```powershell
+cd xzone
+npm install
+npm start
+```
+
+The backend listens on `0.0.0.0:3000` by default.
+
+Useful local URLs:
+
+- `http://localhost:3000/` - health check
+- `http://localhost:3000/dashboard` - browser control panel
+- `http://localhost:3000/stats` - service stats
+- `http://localhost:3000/ops/health` - ops health
+- `http://localhost:3000/ops/routes` - route inventory
+- `http://localhost:3000/ops/requests?limit=200` - recent request summary
+- `http://localhost:3000/ops/unhandled` - recent errors and missing routes
+
+## Request Discovery
+
+Run the backend while the real dashboard is pointed at xZone. The server writes:
+
+- `xzone/logs/all-requests.log` - human-readable request log
+- `xzone/logs/all-requests.jsonl` - machine-readable request log
+
+Use `/ops/unhandled` after opening dashboard blades to see which service paths still need proper stubs.
+
+## Configuration
+
+Environment variables:
+
+- `PORT` - server port, default `3000`
+- `HOST` - bind address, default `0.0.0.0`
+- `DB_PATH` - SQLite database path
+- `REQUEST_BODY_LIMIT` - request body limit, default `128kb`
+- `XZONE_ADMIN_TOKEN` - optional token required by admin routes
+- `XZONE_REQUEST_LOG` - enable request logging, default `true`
+- `XZONE_LOG_MAX_BODY_CHARS` - max logged body size, default `4000`
+- `XZONE_ONLINE_WINDOW_SECONDS` - presence window, default `300`
+- `XZONE_HEARTBEAT_POINT_COOLDOWN_SECONDS` - Famestar heartbeat cooldown, default `300`
+- `XZONE_TRUST_PROXY` - trust one proxy hop, default `false`
+
+## Checks
+
+```powershell
+npm test
+npm audit --omit=dev
+```
+

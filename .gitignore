@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Runtime data
+xzone/db/*.db
+xzone/db/*.db-*
+xzone/logs/
+xzone/test-results/
+xzone/playwright-report/
+*.log
+*.jsonl
+
+# Original dashboard/resource binaries are intentionally kept local.
+*.xex
+*.xzp
+
+# Local agent/editor state
+.sixth/
+.vscode/
+.idea/
+
+# OS noise
+Thumbs.db
+.DS_Store

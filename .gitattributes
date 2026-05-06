@@ -1,0 +1,6 @@
+* text=auto
+*.bat text eol=crlf
+*.db binary
+*.xex binary
+*.xzp binary
+
