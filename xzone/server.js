@@ -8,6 +8,7 @@ const path = require('path');
 const config = require('./config');
 const { initDb, getDb } = require('./db/schema');
 const { appendRequestLog } = require('./lib/request-log');
+const { attachProxyConnectHandler, normalizeProxyRequest } = require('./lib/proxy-mode');
 const { sendXmlError, sendXmlStatus } = require('./lib/responses');
 
 // Master request log captures every route, including 404s. It is useful while
@@ -54,6 +55,7 @@ function createApp() {
     res.set('X-Xzone-Version', config.serviceVersion);
     next();
   });
+  app.use(normalizeProxyRequest);
   app.use(cors({
     origin: config.corsOrigin === '*' ? true : config.corsOrigin.split(',').map(origin => origin.trim()),
   }));
@@ -169,7 +171,7 @@ async function start() {
     }
     console.log('');
   });
-  return server;
+  return attachProxyConnectHandler(server);
 }
 
 if (require.main === module) {

@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
@@ -35,6 +36,31 @@ async function json(pathname, options) {
   const res = await fetch(`${baseUrl}${pathname}`, options);
   const body = await res.json();
   return { res, body };
+}
+
+function rawHttp(pathname, options = {}) {
+  const url = new URL(baseUrl);
+
+  return new Promise((resolve, reject) => {
+    const req = http.request({
+      host: url.hostname,
+      port: url.port,
+      method: options.method || 'GET',
+      path: pathname,
+      headers: options.headers || {},
+    }, res => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => {
+        body += chunk;
+      });
+      res.on('end', () => resolve({ res, body }));
+    });
+
+    req.on('error', reject);
+    if (options.body) req.write(options.body);
+    req.end();
+  });
 }
 
 test('health, dashboard, and XML fallback respond', async () => {
@@ -131,6 +157,17 @@ test('ops endpoints and XML-aware marketplace stubs work', async () => {
   assert.equal(famestarXml.status, 200);
   assert.match(await famestarXml.text(), /<FamestarLeaderboard/);
 
+  const proxyForm = await rawHttp('http://catalog.xboxlive.test/marketplace/featured?blade=games', {
+    headers: {
+      Host: 'catalog.xboxlive.test',
+      Accept: 'application/xml',
+      'User-Agent': 'Xbox/2.0 proxy-form-smoke',
+    },
+  });
+  assert.equal(proxyForm.res.statusCode, 200);
+  assert.equal(proxyForm.res.headers['x-xzone-proxy-target'], 'catalog.xboxlive.test');
+  assert.match(proxyForm.body, /<MarketplaceResponse/);
+
   await new Promise(resolve => setTimeout(resolve, 50));
   const testHost = new URL(baseUrl).host;
   const requests = await json(`/ops/requests?host=${encodeURIComponent(testHost)}&ua=xbox`);
@@ -138,6 +175,10 @@ test('ops endpoints and XML-aware marketplace stubs work', async () => {
   assert.ok(requests.body.summary.byPath.some(row => row.route === 'GET /marketplace/featured'));
   assert.ok(requests.body.summary.byHost[testHost] >= 1);
   assert.ok(Object.keys(requests.body.summary.byUserAgent).some(ua => ua.includes('Xbox/2.0')));
+
+  const proxyRequests = await json('/ops/requests?host=catalog.xboxlive.test');
+  assert.equal(proxyRequests.res.status, 200);
+  assert.ok(proxyRequests.body.recent.some(record => record.proxy?.path === '/marketplace/featured?blade=games'));
 });
 
 test('title admin lifecycle supports add, update, presence, and soft delete', async () => {

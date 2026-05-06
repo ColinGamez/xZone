@@ -11,7 +11,8 @@
     "validate": "npm run check && npm test && npm audit --omit=dev",
     "xbox:status": "node scripts/neighborhood.js status",
     "xbox:dir": "node scripts/neighborhood.js dir",
-    "xbox:capture": "node scripts/neighborhood.js capture"
+    "xbox:capture": "node scripts/neighborhood.js capture",
+    "xbox:proxy-plan": "node scripts/neighborhood.js proxy-plan"
   },
   "engines": {
     "node": ">=18"

@@ -49,7 +49,16 @@ function parseLimit(value) {
 }
 
 function requestPath(record) {
-  return String(record.originalUrl || record.path || '/').split('?')[0] || '/';
+  if (record.proxy?.path) return String(record.proxy.path).split('?')[0] || '/';
+  const value = String(record.originalUrl || record.path || '/');
+  if (/^https?:\/\//i.test(value)) {
+    try {
+      return new URL(value).pathname || '/';
+    } catch {
+      return value.split('?')[0] || '/';
+    }
+  }
+  return value.split('?')[0] || '/';
 }
 
 function normalizeRecord(record) {
@@ -69,8 +78,8 @@ function filterRecords(records, query) {
   return records.filter(record => {
     if (status && String(record.statusCode) !== status) return false;
     if (method && String(record.method || '').toUpperCase() !== method) return false;
-    if (contains && !String(record.originalUrl || record.path || '').toLowerCase().includes(contains)) return false;
-    if (host && !String(record.meta?.host || '').toLowerCase().includes(host)) return false;
+    if (contains && !String(`${record.originalUrl || record.path || ''} ${record.proxy?.originalUrl || ''}`).toLowerCase().includes(contains)) return false;
+    if (host && !String(`${record.meta?.host || ''} ${record.proxy?.host || ''}`).toLowerCase().includes(host)) return false;
     if (userAgent && !String(record.meta?.['user-agent'] || '').toLowerCase().includes(userAgent)) return false;
     return true;
   });
@@ -99,7 +108,7 @@ function summarize(records) {
     const status = String(record.statusCode || 'unknown');
     byStatus.set(status, (byStatus.get(status) || 0) + 1);
 
-    const host = String(record.meta?.host || 'unknown');
+    const host = String(record.proxy?.host || record.meta?.host || 'unknown');
     byHost.set(host, (byHost.get(host) || 0) + 1);
 
     const ua = String(record.meta?.['user-agent'] || 'unknown').slice(0, 160);

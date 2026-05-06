@@ -80,9 +80,12 @@ If the Xbox 360 SDK tools are installed, xZone includes read-only helper command
 npm run xbox:status
 npm run xbox:dir -- xY:\
 npm run xbox:capture
+npm run xbox:proxy-plan
 ```
 
 `xbox:status` reports the target type, common mounted drives, xZone probe URLs for this PC, and whether the target has hit the xZone request log. `xbox:capture` saves the current front-buffer screenshot to `xzone/test-results/xbox-current.bmp`.
+
+`xbox:proxy-plan` prints the exact `xbsetcfg /HTTPPROXY` commands to point the kit at xZone and to clear that proxy later. xZone accepts plain HTTP proxy-form requests such as `GET http://host/path HTTP/1.1` and routes them by path, but it does not tunnel HTTPS `CONNECT` traffic.
 
 Set `XBOX_TARGET=192.168.2.83` if Neighborhood does not already have the right default target. Set `XDK_BIN` if the Xbox 360 SDK is installed outside the usual `Program Files (x86)` path. The helper decodes Japanese XDK output as `shift_jis` by default; override `XDK_OUTPUT_ENCODING` if your SDK tools emit a different code page.
 

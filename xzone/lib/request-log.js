@@ -90,6 +90,7 @@ function buildRecord(req, options = {}) {
   };
 
   if (options.includeMeta) record.meta = pickMetaHeaders(req.headers);
+  if (req.xzoneProxy) record.proxy = req.xzoneProxy;
   if (options.includeHeaders) record.headers = redactHeaders(req.headers);
   if (options.includeBody) {
     const body = truncate(stringifyBody(req.body));

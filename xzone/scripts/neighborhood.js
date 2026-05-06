@@ -21,6 +21,7 @@ Usage:
   npm run xbox:status -- [--target 192.168.2.83]
   npm run xbox:dir -- xY:\\ [--target 192.168.2.83]
   npm run xbox:capture -- [output.bmp] [--target 192.168.2.83]
+  npm run xbox:proxy-plan -- [--target 192.168.2.83]
 
 Environment:
   XBOX_TARGET          Optional Neighborhood target IP/name.
@@ -98,6 +99,22 @@ function localIPv4s() {
     .flat()
     .filter(addr => addr && addr.family === 'IPv4' && !addr.internal)
     .map(addr => addr.address);
+}
+
+function sameSubnet(a, b) {
+  const left = String(a || '').split('.');
+  const right = String(b || '').split('.');
+  return left.length === 4 && right.length === 4 && left.slice(0, 3).join('.') === right.slice(0, 3).join('.');
+}
+
+function preferredLocalIPv4(target) {
+  const addresses = localIPv4s();
+  if (!target) return addresses[0] || 'YOUR_PC_IP';
+  return addresses.find(address => sameSubnet(address, target)) || addresses[0] || 'YOUR_PC_IP';
+}
+
+function psQuote(value) {
+  return `'${String(value).replace(/'/g, "''")}'`;
 }
 
 function detectTarget(output, explicitTarget) {
@@ -225,6 +242,26 @@ function capture(command) {
   console.log(`Captured ${output} (${file.size} bytes)`);
 }
 
+function proxyPlan(command) {
+  const type = runTool('xbconsoletype.exe', targetArgs(command.target), { allowFailure: true });
+  const target = detectTarget(type.output, command.target) || 'XBOX_TARGET';
+  const pcAddress = preferredLocalIPv4(target);
+  const xbsetcfg = toolPath('xbsetcfg.exe');
+
+  console.log('xZone accepts plain HTTP proxy-form requests and will route them by path.');
+  console.log('It does not tunnel HTTPS CONNECT requests, so this is best for discovery and HTTP-era service calls.');
+  console.log('');
+  console.log('Set Xbox XHTTP proxy:');
+  console.log(`  & ${psQuote(xbsetcfg)} /X:${target} /HTTPPROXY set ${pcAddress} 3000 /force`);
+  console.log('');
+  console.log('Clear Xbox XHTTP proxy:');
+  console.log(`  & ${psQuote(xbsetcfg)} /X:${target} /HTTPPROXY clear /force`);
+  console.log('');
+  console.log('Then watch for traffic with:');
+  console.log('  npm run xbox:status');
+  console.log('  http://localhost:3000/ops/requests?limit=200');
+}
+
 async function main() {
   const command = parseArgs(process.argv.slice(2));
   if (command.command === 'help' || command.command === '--help' || command.command === '/?') {
@@ -235,6 +272,7 @@ async function main() {
   if (command.command === 'status') return status(command);
   if (command.command === 'dir') return dir(command);
   if (command.command === 'capture') return capture(command);
+  if (command.command === 'proxy-plan') return proxyPlan(command);
 
   throw new Error(`Unknown command "${command.command}". Run with "help" for usage.`);
 }
