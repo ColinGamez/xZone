@@ -3,6 +3,7 @@ const router   = express.Router();
 const { getDb }       = require('../db/schema');
 const { requireAuth } = require('../middleware/auth');
 const { awardPoints, ensureFamestar } = require('../services/famestar');
+const { sendNegotiated } = require('../lib/responses');
 
 function parsePositivePoints(value) {
   const amount = Math.floor(Number(value));
@@ -20,7 +21,7 @@ router.get('/leaderboard/top', (req, res) => {
     ORDER BY f.points DESC
     LIMIT 20
   `).all();
-  res.json({ leaderboard: rows });
+  sendNegotiated(req, res, 'FamestarLeaderboard', { leaderboard: rows });
 });
 
 // POST /famestar/award-points — award points to the authed user
@@ -54,7 +55,7 @@ router.get('/:gamertag', (req, res) => {
     WHERE user_id = ? ORDER BY created_at DESC LIMIT 10
   `).all(user.id);
 
-  res.json({
+  sendNegotiated(req, res, 'FamestarProfile', {
     gamertag:       user.gamertag,
     xuid:           user.xuid,
     level:          fame.level,

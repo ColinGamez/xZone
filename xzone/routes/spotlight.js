@@ -2,11 +2,12 @@ const express = require('express');
 const router  = express.Router();
 const config  = require('../config');
 const { getDb } = require('../db/schema');
+const { sendNegotiated } = require('../lib/responses');
 
 // GET /spotlight — What's New feed for the dashboard
 // Returns items the Metro plugin/NXE stub will display
 router.get('/', (req, res) => {
-  res.json({
+  sendNegotiated(req, res, 'SpotlightResponse', {
     version: '1.0',
     service: 'Xzone Spotlight',
     items: config.spotlight.items,
@@ -36,7 +37,7 @@ router.get('/community', (req, res) => {
     ORDER BY p.created_at DESC LIMIT 5
   `).all();
 
-  res.json({
+  sendNegotiated(req, res, 'CommunityResponse', {
     recentJoins,
     topFamestar,
     recentPosts,

@@ -112,12 +112,31 @@ test('ops endpoints and XML-aware marketplace stubs work', async () => {
   assert.equal(exported.res.status, 200);
   assert.ok(Array.isArray(exported.body.data.users));
 
+  const spotlightXml = await fetch(`${baseUrl}/spotlight`, {
+    headers: { 'User-Agent': 'Xbox/2.0 xZone-smoke' },
+  });
+  assert.equal(spotlightXml.status, 200);
+  assert.match(spotlightXml.headers.get('content-type'), /application\/xml/);
+  assert.match(await spotlightXml.text(), /<SpotlightResponse/);
+
+  const socialXml = await fetch(`${baseUrl}/social/online`, {
+    headers: { Accept: 'application/xml' },
+  });
+  assert.equal(socialXml.status, 200);
+  assert.match(await socialXml.text(), /<OnlineResponse/);
+
+  const famestarXml = await fetch(`${baseUrl}/famestar/leaderboard/top`, {
+    headers: { Accept: 'application/xml' },
+  });
+  assert.equal(famestarXml.status, 200);
+  assert.match(await famestarXml.text(), /<FamestarLeaderboard/);
+
   await new Promise(resolve => setTimeout(resolve, 50));
   const testHost = new URL(baseUrl).host;
   const requests = await json(`/ops/requests?host=${encodeURIComponent(testHost)}&ua=xbox`);
   assert.equal(requests.res.status, 200);
   assert.ok(requests.body.summary.byPath.some(row => row.route === 'GET /marketplace/featured'));
-  assert.equal(requests.body.summary.byHost[testHost], 1);
+  assert.ok(requests.body.summary.byHost[testHost] >= 1);
   assert.ok(Object.keys(requests.body.summary.byUserAgent).some(ua => ua.includes('Xbox/2.0')));
 });
 

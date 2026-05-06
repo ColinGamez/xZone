@@ -5,7 +5,7 @@ const { getDb }       = require('../db/schema');
 const { requireAuth, softAuth } = require('../middleware/auth');
 const config = require('../config');
 const { awardPoints } = require('../services/famestar');
-const { sendXmlObject, wantsXml } = require('../lib/responses');
+const { sendNegotiated } = require('../lib/responses');
 
 function requestField(req, names) {
   for (const source of [req.body, req.query]) {
@@ -37,7 +37,7 @@ router.get('/online', softAuth, (req, res) => {
     ORDER BY s.updated_at DESC
   `).all(cutoff);
 
-  res.json({ online, count: online.length });
+  sendNegotiated(req, res, 'OnlineResponse', { online, count: online.length });
 });
 
 function heartbeat(req, res) {
@@ -68,8 +68,7 @@ function heartbeat(req, res) {
   });
 
   const payload = { status: 'ok', gamertag: req.user.gamertag, titleId: cleanTitleId, famestar: fame };
-  if (wantsXml(req)) return sendXmlObject(res, 'HeartbeatResponse', payload);
-  return res.json(payload);
+  return sendNegotiated(req, res, 'HeartbeatResponse', payload);
 }
 
 // POST /social/heartbeat — console checks in to show as online.
@@ -87,7 +86,7 @@ router.get('/feed', softAuth, (req, res) => {
     ORDER BY p.created_at DESC
     LIMIT 20
   `).all();
-  res.json({ posts });
+  sendNegotiated(req, res, 'FeedResponse', { posts });
 });
 
 // POST /social/feed — post to community feed

@@ -72,11 +72,17 @@ function sendXmlObject(res, root, value, statusCode = 200) {
   sendXml(res, valueToXml(root, value), statusCode);
 }
 
+function sendNegotiated(req, res, root, value, statusCode = 200) {
+  if (wantsXml(req)) return sendXmlObject(res, root, value, statusCode);
+  return res.status(statusCode).json(value);
+}
+
 module.exports = {
   escapeXml,
   sendXml,
   sendXmlStatus,
   sendXmlError,
   sendXmlObject,
+  sendNegotiated,
   wantsXml,
 };
