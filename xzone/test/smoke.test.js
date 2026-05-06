@@ -53,6 +53,15 @@ test('health, dashboard, and XML fallback respond', async () => {
   const favicon = await fetch(`${baseUrl}/favicon.ico`);
   assert.equal(favicon.status, 204);
 
+  const probeText = await fetch(`${baseUrl}/probe.txt`);
+  assert.equal(probeText.status, 200);
+  assert.match(await probeText.text(), /xZone OK/);
+
+  const probeXml = await fetch(`${baseUrl}/probe.xml`);
+  assert.equal(probeXml.status, 200);
+  assert.match(probeXml.headers.get('content-type'), /application\/xml/);
+  assert.match(await probeXml.text(), /<ProbeResponse/);
+
   const missing = await fetch(`${baseUrl}/missing/<bad>`);
   assert.equal(missing.status, 404);
   assert.match(missing.headers.get('content-type'), /application\/xml/);
@@ -79,6 +88,8 @@ test('ops endpoints and XML-aware marketplace stubs work', async () => {
 
   const routes = await json('/ops/routes');
   assert.equal(routes.res.status, 200);
+  assert.ok(routes.body.core.includes('GET /probe.txt'));
+  assert.ok(routes.body.core.includes('GET /social/heartbeat'));
   assert.ok(routes.body.stubs.includes('ALL /marketplace/*'));
   assert.ok(routes.body.ops.includes('GET /ops/export'));
 
@@ -162,6 +173,43 @@ test('feed posting auto-registers a user and awards Famestar points', async () =
   const profile = await json('/famestar/SmokeTest');
   assert.equal(profile.res.status, 200);
   assert.equal(profile.body.points, 10);
+});
+
+test('simple Proto and Metro auth works from query strings and JSON bodies', async () => {
+  const queryHeartbeat = await json(
+    '/social/heartbeat?gamertag=MetroProbe&xuid=proto-metro-probe&status=Metro&titleId=FFFE07D1'
+  );
+  assert.equal(queryHeartbeat.res.status, 200);
+  assert.equal(queryHeartbeat.body.status, 'ok');
+  assert.equal(queryHeartbeat.body.gamertag, 'MetroProbe');
+  assert.equal(queryHeartbeat.body.titleId, 'FFFE07D1');
+
+  const bodyHeartbeat = await json('/social/heartbeat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      gamertag: 'ProtoProbe',
+      xuid: 'proto-body-probe',
+      status: 'Proto',
+      titleId: '58410954',
+    }),
+  });
+  assert.equal(bodyHeartbeat.res.status, 200);
+  assert.equal(bodyHeartbeat.body.status, 'ok');
+  assert.equal(bodyHeartbeat.body.gamertag, 'ProtoProbe');
+
+  const xmlHeartbeat = await fetch(
+    `${baseUrl}/social/heartbeat?gamertag=XmlProbe&xuid=proto-xml-probe&status=XML`,
+    { headers: { Accept: 'application/xml' } }
+  );
+  assert.equal(xmlHeartbeat.status, 200);
+  assert.match(xmlHeartbeat.headers.get('content-type'), /application\/xml/);
+  assert.match(await xmlHeartbeat.text(), /<HeartbeatResponse/);
+
+  const online = await json('/social/online');
+  assert.equal(online.res.status, 200);
+  assert.ok(online.body.online.some(player => player.gamertag === 'MetroProbe'));
+  assert.ok(online.body.online.some(player => player.gamertag === 'ProtoProbe'));
 });
 
 test('heartbeat updates presence but throttles repeat point awards', async () => {

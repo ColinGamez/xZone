@@ -23,6 +23,7 @@ const marketplaceRoutes = require('./routes/marketplace');
 const socialRoutes = require('./routes/social');
 const titlesRoutes = require('./routes/titles');
 const opsRoutes = require('./routes/ops');
+const probeRoutes = require('./routes/probe');
 
 function requestLogger(req, res, next) {
   const started = Date.now();
@@ -85,6 +86,9 @@ function createApp() {
       dashboard: '/dashboard',
     });
   });
+
+  // Lightweight probes for testing from Proto/Metro, Xbox Neighborhood, or a browser.
+  app.use(probeRoutes);
 
   // Core Xzone services
   app.use('/famestar', famestarRoutes);
@@ -158,6 +162,7 @@ async function start() {
     console.log(`Xzone server running on ${config.host}:${config.port}`);
     console.log(`Health:    http://localhost:${config.port}/`);
     console.log(`Dashboard: http://localhost:${config.port}/dashboard`);
+    console.log(`Probe:     http://localhost:${config.port}/probe.txt`);
     console.log(`Stats:     http://localhost:${config.port}/stats`);
     for (const address of getLanAddresses()) {
       console.log(`LAN:       http://${address}:${config.port}/`);

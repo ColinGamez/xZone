@@ -12,20 +12,62 @@ function cleanHeader(value, maxLength) {
   return value.trim().replace(/[\r\n]/g, '').slice(0, maxLength);
 }
 
-function getAuthHeaders(req) {
+function firstField(source, names) {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return '';
+
+  for (const name of names) {
+    const value = source[name];
+    if (Array.isArray(value)) {
+      const first = value.find(item => item != null && String(item).trim());
+      if (first != null) return String(first);
+    } else if (value != null && String(value).trim()) {
+      return String(value);
+    }
+  }
+
+  return '';
+}
+
+function getSimpleAuth(req) {
+  if (!config.auth.allowSimpleAuth) return { gamertag: '', xuid: '' };
+
   return {
+    gamertag: cleanHeader(
+      firstField(req.query, ['gamertag', 'gamerTag', 'gt', 'name']) ||
+      firstField(req.body, ['gamertag', 'gamerTag', 'gt', 'name']),
+      config.auth.gamertagMaxLength
+    ),
+    xuid: cleanHeader(
+      firstField(req.query, ['xuid', 'XUID', 'uid', 'xu']) ||
+      firstField(req.body, ['xuid', 'XUID', 'uid', 'xu']),
+      config.auth.xuidMaxLength
+    ),
+  };
+}
+
+function getAuthIdentity(req) {
+  const headers = {
     gamertag: cleanHeader(headerString(req, 'x-gamertag'), config.auth.gamertagMaxLength),
     xuid: cleanHeader(headerString(req, 'x-xuid'), config.auth.xuidMaxLength),
+  };
+
+  if (headers.gamertag && headers.xuid) return headers;
+
+  const simple = getSimpleAuth(req);
+  return {
+    gamertag: headers.gamertag || simple.gamertag,
+    xuid: headers.xuid || simple.xuid,
   };
 }
 
 // Lightweight auth middleware
-// Expects X-Gamertag and X-XUID headers from the Metro plugin
+// Prefers X-Gamertag and X-XUID headers, with query/body fallback for quick
+// Proto/Metro console probes and simple launcher scripts.
 function requireAuth(req, res, next) {
-  const { gamertag, xuid } = getAuthHeaders(req);
+  const { gamertag, xuid } = getAuthIdentity(req);
 
   if (!gamertag || !xuid) {
-    return res.status(401).json({ error: 'Missing auth headers' });
+    return res.status(401).json({ error: 'Missing auth identity' });
   }
 
   const db   = getDb();
@@ -65,7 +107,7 @@ function requireAuth(req, res, next) {
 
 // Soft auth — attaches user if present, doesn't block if missing
 function softAuth(req, res, next) {
-  const { xuid } = getAuthHeaders(req);
+  const { xuid } = getAuthIdentity(req);
   if (xuid) {
     const db = getDb();
     req.user = db.prepare('SELECT * FROM users WHERE xuid = ?').get(xuid) || null;
@@ -73,4 +115,4 @@ function softAuth(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, softAuth };
+module.exports = { requireAuth, softAuth, getAuthIdentity };

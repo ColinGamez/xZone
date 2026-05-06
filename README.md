@@ -36,6 +36,8 @@ Useful local URLs:
 
 - `http://localhost:3000/` - health check
 - `http://localhost:3000/dashboard` - browser control panel
+- `http://localhost:3000/probe.txt` - plain text probe for console/browser testing
+- `http://localhost:3000/probe.xml` - XML probe for NXE-era callers
 - `http://localhost:3000/stats` - service stats
 - `http://localhost:3000/ops/health` - ops health
 - `http://localhost:3000/ops/routes` - route inventory
@@ -57,6 +59,19 @@ Use `DELETE /ops/requests` from localhost to clear discovery logs before a fresh
 
 `/ops/*` is available from localhost by default. If you set `XZONE_ADMIN_TOKEN`, remote ops callers must send `X-Admin-Token`.
 
+## Proto / Metro Quick Probe
+
+While the console is still on Proto or Metro, you can sanity-check xZone without NXE installed:
+
+```text
+http://YOUR_PC_IP:3000/probe.txt
+http://YOUR_PC_IP:3000/probe.xml
+http://YOUR_PC_IP:3000/social/heartbeat?gamertag=Colin&xuid=proto-colin&status=Metro
+http://YOUR_PC_IP:3000/social/online
+```
+
+`X-Gamertag` and `X-XUID` headers still take priority, but query/body auth is enabled by default so simple Neighborhood scripts, launchers, or browser hits can register presence. Set `XZONE_ALLOW_SIMPLE_AUTH=false` if this server is ever exposed outside your LAN.
+
 ## Configuration
 
 Environment variables:
@@ -70,6 +85,7 @@ Environment variables:
 - `XZONE_REQUEST_LOG` - enable request logging, default `true`
 - `XZONE_LOG_DIR` - request log directory, default `xzone/logs`
 - `XZONE_LOG_MAX_BODY_CHARS` - max logged body size, default `4000`
+- `XZONE_ALLOW_SIMPLE_AUTH` - allow query/body gamertag and XUID fallback, default `true`
 - `XZONE_ONLINE_WINDOW_SECONDS` - presence window, default `300`
 - `XZONE_HEARTBEAT_POINT_COOLDOWN_SECONDS` - Famestar heartbeat cooldown, default `300`
 - `XZONE_TRUST_PROXY` - trust one proxy hop, default `false`

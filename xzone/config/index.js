@@ -40,6 +40,7 @@ module.exports = {
   },
 
   auth: {
+    allowSimpleAuth: boolEnv('XZONE_ALLOW_SIMPLE_AUTH', true),
     gamertagMaxLength: intEnv('XZONE_GAMERTAG_MAX_LENGTH', 15),
     xuidMaxLength: intEnv('XZONE_XUID_MAX_LENGTH', 64),
   },

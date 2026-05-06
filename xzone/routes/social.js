@@ -5,6 +5,24 @@ const { getDb }       = require('../db/schema');
 const { requireAuth, softAuth } = require('../middleware/auth');
 const config = require('../config');
 const { awardPoints } = require('../services/famestar');
+const { sendXmlObject, wantsXml } = require('../lib/responses');
+
+function requestField(req, names) {
+  for (const source of [req.body, req.query]) {
+    if (!source || typeof source !== 'object' || Array.isArray(source)) continue;
+    for (const name of names) {
+      const value = source[name];
+      if (Array.isArray(value)) {
+        const first = value.find(item => item != null && String(item).trim());
+        if (first != null) return String(first);
+      } else if (value != null && String(value).trim()) {
+        return String(value);
+      }
+    }
+  }
+
+  return '';
+}
 
 // GET /social/online — who's currently online on Xzone
 router.get('/online', softAuth, (req, res) => {
@@ -22,9 +40,9 @@ router.get('/online', softAuth, (req, res) => {
   res.json({ online, count: online.length });
 });
 
-// POST /social/heartbeat — console checks in to show as online
-router.post('/heartbeat', requireAuth, (req, res) => {
-  const { status, titleId } = req.body;
+function heartbeat(req, res) {
+  const status = requestField(req, ['status', 'presence']);
+  const titleId = requestField(req, ['titleId', 'titleID', 'title_id', 'tid', 'title']);
   const db = getDb();
   const cleanStatus = String(status || 'Online').trim().slice(0, 40) || 'Online';
   const cleanTitleId = titleId ? String(titleId).trim().slice(0, 64) : null;
@@ -49,8 +67,15 @@ router.post('/heartbeat', requireAuth, (req, res) => {
     );
   });
 
-  res.json({ status: 'ok', famestar: fame });
-});
+  const payload = { status: 'ok', gamertag: req.user.gamertag, titleId: cleanTitleId, famestar: fame };
+  if (wantsXml(req)) return sendXmlObject(res, 'HeartbeatResponse', payload);
+  return res.json(payload);
+}
+
+// POST /social/heartbeat — console checks in to show as online.
+// GET is also supported so Neighborhood/browser probes can hit a plain URL.
+router.post('/heartbeat', requireAuth, heartbeat);
+router.get('/heartbeat', requireAuth, heartbeat);
 
 // GET /social/feed — community feed
 router.get('/feed', softAuth, (req, res) => {
